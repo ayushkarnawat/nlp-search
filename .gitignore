@@ -1,0 +1,11 @@
+# MacOS Files
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store
+
+.AppleDouble
+**/.AppleDouble
+
+# __pycache__ files
+__pycache__/**
