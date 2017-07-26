@@ -1,0 +1,12 @@
+[
+  {
+    "input": "New york to paris october 23rd",
+    "output":
+    {
+      "departure": "unix timestamp equivalent to 10/23/2017",
+      "return": null,
+      "origin": "New york airport code (JFK)",
+      "destination": "Paris airport code (CDG)"
+    }
+  }
+]
