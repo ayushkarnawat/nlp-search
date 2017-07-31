@@ -11,13 +11,13 @@ class TestNLPSearch(unittest.TestCase):
     def test_filter(self):
         # Test case #1: Untagged words
         raw = "Flights from New York to Los Angeles between October 2nd to November 21st"
-        filtered_sentence_without_tags = search.filter(raw, get_tags=False, language="english")
+        filtered_sentence_without_tags = search.clean(raw, get_tags=False, language="english")
         result = ['Flights', 'New', 'York', 'Los', 'Angeles', 'October', '2nd', 'November', '21st']
         self.assertEquals(filtered_sentence_without_tags, result)
 
         # Test case #2: Proper word string tagging based on parts of speech
         raw = "Flights from New York to Los Angeles between October 2nd to November 21st"
-        filtered_sentence_with_tags = search.filter(raw, get_tags=True, language="english")
+        filtered_sentence_with_tags = search.clean(raw, get_tags=True, language="english")
         result_tagged = [('Flights', 'NNS'), ('New', 'NNP'), ('York', 'NNP'), ('Los', 'NNP'), ('Angeles', 'NNP'), ('October', 'NNP'),                      ('2nd', 'CD'), ('November', 'NNP'), ('21st', 'CD')]
         self.assertEquals(filtered_sentence_with_tags, result_tagged)
 
