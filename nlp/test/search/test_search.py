@@ -39,7 +39,8 @@ class TestNLPSearch(unittest.TestCase):
         output_city_names = "(S\n  Flights/NNS\n  from/IN\n  (ORGIN/DESTINATION New/NNP York/NNP to/TO Los/NNP Angeles/NNP)\n  between/IN\n  October/NNP\n  2nd/CD\n  to/TO\n  November/NNP\n  21st/CD)"
         self.assertEquals(parsed_tree.__str__(), output_city_names)
 
-        # Test case #3: Test for origin and destination based on one with city name and one airport code
+        # Test case #3: Test for origin and destination based on one with city
+        # name and one airport code
         raw = "Flights from New York to LAX between October 2nd to November 21st"
         words = word_tokenize(raw)
         tagged_words = nltk.pos_tag(words)
