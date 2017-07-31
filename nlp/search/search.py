@@ -1,6 +1,8 @@
 import re
+import json
 
 import nltk
+from nltk import Tree
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize, PunktSentenceTokenizer
 
@@ -19,7 +21,7 @@ def filter(raw, get_tags=True, language="english"):
 
     language: str, optional, default="english"
         The language of the raw string. This will define the dictionary 
-        of stop words to remove from the unfiltred string.
+        of stop words to remove from the unfiltered string.
 
     Returns:
     --------
@@ -81,7 +83,7 @@ def get_dates(tagged_words):
 
     TODO:
     -----
-    - There may be scenarios where no date otr month is provided, so we will have to 
+    - There may be scenarios where no date or month is provided, so we will have to 
         account for that scenario.
     """
     grams = r"Departure/Return: {<NNP.?>+<CD><TO>*<NNP?>*<CD>*}"
@@ -97,3 +99,49 @@ def get_dates(tagged_words):
 #     Checks whether or not the user has requested for a fexible fare (i.e. variable 
 #     dates and times). 
 #     """
+
+def tree_to_dict(tree):
+    """
+    Converts the nltk tree into a python dictionary. 
+
+    Params:
+    -------
+    tree: nltk Tree object
+        The tree output returned from running a search query and extracting the
+        necessary information.
+
+    Returns:
+    --------
+    tdict: dict
+        The parsed tree in a dictionary format. To be later used to convert to JSON object. 
+    """
+    tdict = {}
+    for t in tree:
+        if isinstance(t, nltk.Tree) and isinstance(t[0], nltk.Tree):
+            tdict[t.label()] = tree_to_dict(t)
+        elif isinstance(t, nltk.Tree):
+            tdict[t.label()] = t[0]
+    return tdict
+
+
+def dict_to_json(tdict):
+    """
+    Converts a python dictionary to a JSON object. In reality, it is just a useful 
+    abstraction of the json.dumps method. 
+
+    Params:
+    -------
+    tdict: dict
+        The parsed search query tree to be converted to a JSON object. 
+
+    Returns:
+    --------
+    json: JSON object
+        The tree/dictionary converted to its JSON form. 
+    """
+    return json.dumps(tdict)
+
+
+def output(parsed_tree):
+    output = dict_to_json({parsed_tree.label(): tree_to_dict(parsed_tree)})
+    return output

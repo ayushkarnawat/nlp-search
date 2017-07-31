@@ -8,4 +8,4 @@
 **/.AppleDouble
 
 # __pycache__ files
-__pycache__/**
+**/__pycache__/*
