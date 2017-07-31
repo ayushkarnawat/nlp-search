@@ -1,11 +1,51 @@
 import re
 import sys
+
 import json
+import requests
 
 import nltk
 from nltk import Tree
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize, PunktSentenceTokenizer
+
+
+def get_query(url, params):
+    """
+    Gets the raw search query from the landing page url. 
+
+    Params:
+    -------
+    url: str
+        The page from where to submit a GET request for the search query
+
+    params: dict
+        A list of key value pairs with which to search the query from. 
+        For example, if we want to search for the keyword 'nlp' from google we 
+        would pass in the (key, value) pairs of {'site': None, 'source': 'hp', 
+        'q': 'nlp'} as the search parameters. 
+
+    Returns:
+    --------
+    r: Request object
+        The request object from which we can get the raw text returned by the GET request. 
+
+    Example:
+    --------
+    >>> import requests
+    >>> url = 'www.google.com/search'
+    >>> params = {'site': None, 'source': 'hp', 'q': 'nlp'}
+    >>> r = get_query(url, params)
+    """
+    # Specify the header information
+    header = {'user-agent': ('Mozilla/5.0 (Windows NT 10.0; WOW64)'
+                          'AppleWebKit/537.36 (KHTML, like Gecko)'
+                          'Chrome/57.0.2987.133 Safari/537.36'),
+              'referer': None,
+              'connection':'keep-alive'}
+    r = requests.get(url, headers=header, params=params)
+
+    return r
 
 
 def clean(raw, get_tags=True, language="english"):
@@ -104,8 +144,8 @@ def get_dates(tagged_words):
 
 def tree_to_json(tree):
     """
-    Converts a python dictionary to a JSON object. In reality, it is just a useful 
-    abstraction of the json.dump method. 
+    Converts a nltk tree to a JSON object. In reality, it is just a useful 
+    abstraction of the json.dump() method. 
 
     Params:
     -------
