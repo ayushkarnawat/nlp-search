@@ -3,6 +3,7 @@ import sys
 
 import json
 import requests
+import datetime as dt
 
 import nltk
 from nltk import Tree
@@ -48,9 +49,9 @@ def get_query(url, params):
     return r
 
 
-def clean(raw, get_tags=True, language="english"):
+def clean(raw, get_tags=True):
     """
-    Removes unnecssary words from the raw string.
+    Removes unnecssary words and punctuation from the raw string.
 
     Params:
     -------
@@ -60,21 +61,14 @@ def clean(raw, get_tags=True, language="english"):
     get_tags: bool, optional, default=True
         Whether or not to get the part of speech tags for the filtered words
 
-    language: str, optional, default="english"
-        The language of the raw string. This will define the dictionary 
-        of stop words to remove from the unfiltered string.
-
     Returns:
     --------
     filtered_sentence: list of str
         The string, removing all unecessary words.
     """
-    # Define the stop_words
-    stop_words = set(stopwords.words(language))
-
-    # Tokenize and remove unimportant words
-    words = word_tokenize(raw)
-    filtered_sentence = [w for w in words if not w in stop_words]
+    # Tokenize and remove unimportant punctuations
+    words = re.sub(r'[^\w\s]', '', raw)
+    filtered_sentence = word_tokenize(words)
 
     if get_tags:
         filtered_sentence = nltk.pos_tag(filtered_sentence)
@@ -99,12 +93,12 @@ def get_origin_and_destination(tagged_words):
     """
     # Define the expression to get both origin and destination. Usually both the 
     # origin and destination are proper nouns (NNP) with the <TO> signifying the direction of travel. 
-    grams = r"ORGIN/DESTINATION: {<NNP.?>+<TO><NNP?>*}"
+    grams = r"Origin/Destination: {<NNP.?>+<TO><NNP?>*}"
     parser = nltk.RegexpParser(grams)
 
-    parsed_words = parser.parse(tagged_words)
+    parsed_tree = parser.parse(tagged_words)
 
-    return parsed_words
+    return parsed_tree
 
 
 def get_dates(tagged_words):
@@ -126,20 +120,112 @@ def get_dates(tagged_words):
     -----
     - There may be scenarios where no date or month is provided, so we will have to 
         account for that scenario.
+    - When months are given in lowercase/abbreviated form, the nltk tags result in them 
+        being classified as JJ (aka adjective) or RB (aka adverb). For example, the string:
+
+            raw = "Flights from NYC to LAX from oct 3 or 7 till november 11"
+        
+        is tagged as: 
+        [('Flights', 'NNS'), ('from', 'IN'), ('NYC', 'NNP'), ('to', 'TO'), ('LAX', 'VB'), 
+         ('from', 'IN'), ('october', 'JJ'), ('3', 'CD'), ('or', 'CC'), ('7', 'CD'), 
+         ('till', 'JJ'), ('november', 'RB'), ('11', 'CD')]
+
+        This is a issue as it will not get parsed out properly.
     """
     grams = r"Departure/Return: {<NNP.?>+<CD><TO>*<NNP?>*<CD>*}"
     parser = nltk.RegexpParser(grams)
 
-    parsed_words = parser.parse(tagged_words)
+    parsed_tree = parser.parse(tagged_words)
 
-    return parsed_words
+    # Check if there exists a nested tree object named "Departure/Return"
+    for subtree in parsed_tree:
+        try:
+            if "Departure/Return" in subtree.label():
+                # Since there will be a min of 2 words but at most 5 words in 
+                # this subtree, we can simply return the departure date and 
+                # check if there is a return date
+                departure_date = subtree[0][0] + " " + subtree[1][0]
+                if len(subtree) < 5:
+                    return_date = None
+                else:
+                    return_date = subtree[3][0] + " " + subtree[4][0]
+        except AttributeError:
+            continue
+
+    return departure_date, return_date
 
 
-# def is_flexibe():
-#     """
-#     Checks whether or not the user has requested for a fexible fare (i.e. variable 
-#     dates and times). 
-#     """
+def convert_date(date):
+    """Temporary method, will move."""
+    return dt.datetime.strptime(date, "%b %d")
+
+
+def clean_date(date):
+    """
+    Cleans the string formatting of date to get it to a unified format of:
+    <Month> <Date> <Year> (i.e. Dec 1 2017).
+
+    Input Examples: 
+        1. Dec
+        2. December
+        3. Dec 1st 
+        4. December 1st
+        5. Dec 2017
+        6. December 2017
+        5. Dec 1st 2017
+        6. December 1st 2017
+
+    Params:
+    -------
+    date: str
+        The date as expressed in human readable format
+
+    Returns:
+    --------
+    cleaned_date: str
+        The date in the specified format of <Month> <Date> <Year>
+    """
+    # Split to get individual parts of the date
+    date = date.split()
+
+    raise NotImplementedError
+
+
+
+def is_flexible(tagged_words):
+    """
+    Checks whether or not the user has requested for a fexible fare (i.e. variable 
+    dates and times). 
+
+    Params:
+    -------
+    tagged_words: list of tuples
+        The tokenized and tagged words of the string based on the pre-trained UPenn corpus.
+
+    Returns:
+    --------
+    bool: 
+        Whether or not the searched flight request has flexible dates or not.
+    """
+    # Check if the keyword "flexible" is within the input. 
+    for word in tagged_words:
+        if ("Flexible" in word) or ("flexible" in word):
+            return True
+
+    # Check for any indication of flexibles dates (i.e. October 8 or October 11 to XXXX)
+    grams = r"Flexible: {<CD.?>+<CC><CD.?>}"
+    parser = nltk.RegexpParser(grams)
+
+    parsed_tree = parser.parse(tagged_words)
+
+    # Check if there exists a nested tree object named "Flexible"
+    for subtree in parsed_tree:
+        try: 
+            if ("Flexible" in subtree.label()): 
+                return True
+        except AttributeError:
+            continue
+    return False
 
 
 def tree_to_json(tree):
@@ -158,5 +244,24 @@ def tree_to_json(tree):
     json: JSON object
         The tree/dictionary converted to its JSON form. 
     """
-    tdict = {tree.label(): [tree_to_dict(t) if isinstance(t, Tree) else t for t in tree]}
+    tdict = _tree_to_dict(tree)
     return json.dump(tdict, sys.stdout, indent=2)
+
+
+def _tree_to_dict(tree):
+    """
+    Internal function, to be used by tree_to_json to build json output.
+
+    Params:
+    -------
+    tree: nltk Tree object
+        The tree output returned from running a search query and extracting the
+        necessary information.
+
+    Returns:
+    --------
+    dict: dict
+        The parsed words tree converted into its (key, value) pairs dictionary, 
+        taking into account nested trees. 
+    """
+    return {tree.label(): [tree_to_dict(t) if isinstance(t, Tree) else t for t in tree]}
