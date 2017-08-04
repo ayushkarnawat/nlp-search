@@ -7,8 +7,7 @@ import datetime as dt
 
 import nltk
 from nltk import Tree
-from nltk.corpus import stopwords
-from nltk.tokenize import sent_tokenize, word_tokenize, PunktSentenceTokenizer
+from nltk.tokenize import word_tokenize
 
 
 def get_query(url, params):
@@ -67,129 +66,13 @@ def clean(raw, get_tags=True):
         The string, removing all unecessary words.
     """
     # Tokenize and remove unimportant punctuations
-    words = re.sub(r'[^\w\s]', '', raw)
+    words = re.sub(r'[^\w\s]', '', raw) # TODO: This removes hyphens as well, which are useful
     filtered_sentence = word_tokenize(words)
 
     if get_tags:
         filtered_sentence = nltk.pos_tag(filtered_sentence)
 
     return filtered_sentence
-
-    
-def get_origin_and_destination(tagged_words):
-    """
-    Gets the origin and destination of where the user wants to travel. 
-
-    Params:
-    -------
-    tagged_words: list of tuples
-        The tokenized and tagged words of the string based on the pre-trained UPenn corpus.
-
-    Returns:
-    --------
-    parsed_words: Tree object
-        The parsed string of words into a tree defining the new struture of the tagged string. 
-        The origin and destination are organized into one list.
-    """
-    # Define the expression to get both origin and destination. Usually both the 
-    # origin and destination are proper nouns (NNP) with the <TO> signifying the direction of travel. 
-    grams = r"Origin/Destination: {<NNP.?>+<TO><NNP?>*}"
-    parser = nltk.RegexpParser(grams)
-
-    parsed_tree = parser.parse(tagged_words)
-
-    return parsed_tree
-
-
-def get_dates(tagged_words):
-    """
-    Gets the dates of departure and return. 
-
-    Params:
-    -------
-    tagged_words: list of tuples
-        The tokenized and tagged words of the string based on the pre-trained UPenn corpus.
-
-    Returns:
-    --------
-    parsed_words: Tree object
-        The parsed string of words into a tree defining the new struture of the tagged string. 
-        The departure and return dates are organized into one list.
-
-    TODO:
-    -----
-    - There may be scenarios where no date or month is provided, so we will have to 
-        account for that scenario.
-    - When months are given in lowercase/abbreviated form, the nltk tags result in them 
-        being classified as JJ (aka adjective) or RB (aka adverb). For example, the string:
-
-            raw = "Flights from NYC to LAX from oct 3 or 7 till november 11"
-        
-        is tagged as: 
-        [('Flights', 'NNS'), ('from', 'IN'), ('NYC', 'NNP'), ('to', 'TO'), ('LAX', 'VB'), 
-         ('from', 'IN'), ('october', 'JJ'), ('3', 'CD'), ('or', 'CC'), ('7', 'CD'), 
-         ('till', 'JJ'), ('november', 'RB'), ('11', 'CD')]
-
-        This is a issue as it will not get parsed out properly.
-    """
-    grams = r"Departure/Return: {<NNP.?>+<CD><TO>*<NNP?>*<CD>*}"
-    parser = nltk.RegexpParser(grams)
-
-    parsed_tree = parser.parse(tagged_words)
-
-    # Check if there exists a nested tree object named "Departure/Return"
-    for subtree in parsed_tree:
-        try:
-            if "Departure/Return" in subtree.label():
-                # Since there will be a min of 2 words but at most 5 words in 
-                # this subtree, we can simply return the departure date and 
-                # check if there is a return date
-                departure_date = subtree[0][0] + " " + subtree[1][0]
-                if len(subtree) < 5:
-                    return_date = None
-                else:
-                    return_date = subtree[3][0] + " " + subtree[4][0]
-        except AttributeError:
-            continue
-
-    return departure_date, return_date
-
-
-def convert_date(date):
-    """Temporary method, will move."""
-    return dt.datetime.strptime(date, "%b %d")
-
-
-def clean_date(date):
-    """
-    Cleans the string formatting of date to get it to a unified format of:
-    <Month> <Date> <Year> (i.e. Dec 1 2017).
-
-    Input Examples: 
-        1. Dec
-        2. December
-        3. Dec 1st 
-        4. December 1st
-        5. Dec 2017
-        6. December 2017
-        5. Dec 1st 2017
-        6. December 1st 2017
-
-    Params:
-    -------
-    date: str
-        The date as expressed in human readable format
-
-    Returns:
-    --------
-    cleaned_date: str
-        The date in the specified format of <Month> <Date> <Year>
-    """
-    # Split to get individual parts of the date
-    date = date.split()
-
-    raise NotImplementedError
-
 
 
 def is_flexible(tagged_words):
@@ -228,6 +111,175 @@ def is_flexible(tagged_words):
     return False
 
 
+def get_origin_and_destination(tagged_words):
+    """
+    Gets the origin and destination of where the user wants to travel. 
+
+    Params:
+    -------
+    tagged_words: list of tuples
+        The tokenized and tagged words of the string based on the pre-trained UPenn corpus.
+
+    Returns:
+    --------
+    parsed_words: Tree object
+        The parsed string of words into a tree defining the new struture of the tagged string. 
+        The origin and destination are organized into one list.
+    """
+    # Define the expression to get both origin and destination. Usually both the 
+    # origin and destination are proper nouns (NNP) with the <TO> signifying the direction of travel. 
+    grams = r"Origin/Destination: {<NNP.?>+<TO><NNP?>*}"
+    parser = nltk.RegexpParser(grams)
+
+    parsed_tree = parser.parse(tagged_words)
+
+    # Check if there exists a nested tree object named "Departure/Return"
+    for subtree in parsed_tree:
+        try:
+            if "Origin/Destination" in subtree.label():
+                # A city name can be arbitrarily long, so we will have to use 
+                # another tree parser have to get the name until the "to" keyword
+                origin_grams = r"Origin: {<NNP.?>+<TO>}"
+                origin_parser = nltk.RegexpParser(origin_grams)
+                nested_subtree = origin_parser.parse(subtree)
+
+                # Get the origin city
+                origin_city = ""
+                for i in range(0, len(nested_subtree[0]) - 1):
+                        origin_city += nested_subtree[0][i][0] + " "
+
+                # Get the departure city
+                destination_city = ""
+                for word in nested_subtree[1:]:
+                    destination_city += word[0] + " "
+        except AttributeError:
+            continue
+
+    return origin_city, destination_city
+
+
+def get_dates(tagged_words):
+    """
+    Gets the dates of departure and return. 
+
+    Params:
+    -------
+    tagged_words: list of tuples
+        The tokenized and tagged words of the string based on the pre-trained UPenn corpus.
+
+    Returns:
+    --------
+    departure_date: float
+        The UNIX timestamp of the departure date. 
+
+    return date: flaor
+        The UNIX timestamp of the return date, if available.
+
+    TODO:
+    -----
+    - When months are given in lowercase/abbreviated form, the nltk tags result in them 
+        being classified as JJ (aka adjective) or RB (aka adverb). For example, the string:
+
+            raw = "Flights from NYC to LAX from oct 3 or 7 till november 11"
+        
+        is tagged as: 
+        [('Flights', 'NNS'), ('from', 'IN'), ('NYC', 'NNP'), ('to', 'TO'), ('LAX', 'VB'), 
+         ('from', 'IN'), ('october', 'JJ'), ('3', 'CD'), ('or', 'CC'), ('7', 'CD'), 
+         ('till', 'JJ'), ('november', 'RB'), ('11', 'CD')]
+
+        This is a issue as it will not get parsed out properly.
+    """
+    grams = r"Departure/Return: {<NNP.?>+<CD><TO>*<NNP?>*<CD>*}"
+    parser = nltk.RegexpParser(grams)
+
+    parsed_tree = parser.parse(tagged_words)
+
+    # Check if there exists a nested tree object named "Departure/Return"
+    for subtree in parsed_tree:
+        try:
+            if "Departure/Return" in subtree.label():
+                # Since there will be a min of 2 words but at most 5 words in 
+                # this subtree, we can simply return the departure date and 
+                # check if there is a return date
+                departure_date = subtree[0][0] + " " + subtree[1][0]
+                if len(subtree) < 3:
+                    return_date = None
+                else:
+                    return_date = subtree[3][0] + " " + subtree[4][0]
+        except AttributeError:
+            continue
+
+    # Clean and convert the dates to UNIX datetime stamp
+    departure_date = dt.datetime.strptime(cleanup_date(departure_date), "%b %d %Y").timestamp()
+    if return_date is not None:
+        return_date = dt.datetime.strptime(cleanup_date(return_date), "%b %d %Y").timestamp()
+
+    return departure_date, return_date
+
+
+def cleanup_date(date):
+    """
+    Cleans the string formatting of date to get it to a unified format of:
+    <Month> <Date> <Year> (i.e. Dec 1 2017).
+
+    Params:
+    -------
+    date: str
+        The date as expressed in human readable format
+
+    Returns:
+    --------
+    cleaned_date: str
+        The date in the specified format of <Month> <Date> <Year>
+
+    Examples:
+    ---------
+    >>> date = "April 13th 2017"
+    Apr 13 2017
+    >>> date = "December 15th"
+    "Dec 15 2017"
+    >>> date = "December"
+    "Dec 1 2017"
+    >>> date = "2017" 
+    "Aug(or whatever the current month is) 1 2017"
+    """
+    # Split to get individual parts of the date
+    date = date.split()
+
+    month = None
+    day = None
+    year = None
+    for word in date:
+        # If the current word is the month
+        if len(re.findall(r'^\b[A-Za-z]+$', word)) > 0:
+            if len(word) > 3: # if not in abbreviated form, abbreviate it
+                month = word[:3].title()
+            else:
+                month = word.title()
+
+        # If the word is the date (with or without the 'st, nd, th' parts)
+        if len(re.findall(r'^\d{1,2}[st|nd|th]*$', word)) > 0:
+            if len(word) > 2: # Remove the "st, nd, th" parts of the date
+                day = word[:-2]
+            else:
+                day = word
+
+        # If the word is the year
+        if len(re.findall(r'^\d{4}$', word)) > 0:
+            year = word
+
+    # Default values 
+    now = dt.datetime.now()
+    if month is None:
+        month = now.strftime("%b")
+    if day is None:
+        day = now.strftime("%d")
+    if year is None:
+        year = now.strftime("%Y")
+
+    return month + " " + day + " " + year
+
+
 def tree_to_json(tree):
     """
     Converts a nltk tree to a JSON object. In reality, it is just a useful 
@@ -264,4 +316,4 @@ def _tree_to_dict(tree):
         The parsed words tree converted into its (key, value) pairs dictionary, 
         taking into account nested trees. 
     """
-    return {tree.label(): [tree_to_dict(t) if isinstance(t, Tree) else t for t in tree]}
+    return {tree.label(): [_tree_to_dict(t) if isinstance(t, Tree) else t for t in tree]}
