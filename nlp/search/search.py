@@ -1,5 +1,4 @@
 import re
-import sys
 
 import json
 import requests
@@ -8,6 +7,8 @@ import datetime as dt
 import nltk
 from nltk import Tree
 from nltk.tokenize import word_tokenize
+
+from nlp.search import airports
 
 
 def get_query(url, params):
@@ -50,7 +51,7 @@ def get_query(url, params):
 
 def clean(raw, get_tags=True):
     """
-    Removes unnecssary words and punctuation from the raw string.
+    Removes unnecssary words and punctuations from the raw string.
 
     Params:
     -------
@@ -63,10 +64,10 @@ def clean(raw, get_tags=True):
     Returns:
     --------
     filtered_sentence: list of str
-        The string, removing all unecessary words.
+        The string, removing all unecessary words and punctuations.
     """
     # Tokenize and remove unimportant punctuations
-    words = re.sub(r'[^\w\s]', '', raw) # TODO: This removes hyphens as well, which are useful
+    words = re.sub(r'[^\w\s]', '', raw) # TODO: This removes hyphens as well, which might be useful
     filtered_sentence = word_tokenize(words)
 
     if get_tags:
@@ -155,6 +156,10 @@ def get_origin_and_destination(tagged_words):
         except AttributeError:
             continue
 
+    # Get airport codes associated with the cities
+    origin_city = airports.get_airport_code(origin_city)
+    destination_city = airports.get_airport_code(destination_city)
+
     return origin_city, destination_city
 
 
@@ -172,7 +177,7 @@ def get_dates(tagged_words):
     departure_date: float
         The UNIX timestamp of the departure date. 
 
-    return date: flaor
+    return_date: flaor
         The UNIX timestamp of the return date, if available.
 
     TODO:
@@ -189,7 +194,7 @@ def get_dates(tagged_words):
 
         This is a issue as it will not get parsed out properly.
     """
-    grams = r"Departure/Return: {<NNP.?>+<CD><TO>*<NNP?>*<CD>*}"
+    grams = r"Departure/Return: {<NNP.?>*<CD>+<TO>*<NNP.?>*<CD>*}"
     parser = nltk.RegexpParser(grams)
 
     parsed_tree = parser.parse(tagged_words)
@@ -210,14 +215,14 @@ def get_dates(tagged_words):
             continue
 
     # Clean and convert the dates to UNIX datetime stamp
-    departure_date = dt.datetime.strptime(cleanup_date(departure_date), "%b %d %Y").timestamp()
+    departure_date = dt.datetime.strptime(format_date(departure_date), "%b %d %Y").timestamp()
     if return_date is not None:
-        return_date = dt.datetime.strptime(cleanup_date(return_date), "%b %d %Y").timestamp()
+        return_date = dt.datetime.strptime(format_date(return_date), "%b %d %Y").timestamp()
 
     return departure_date, return_date
 
 
-def cleanup_date(date):
+def format_date(date):
     """
     Cleans the string formatting of date to get it to a unified format of:
     <Month> <Date> <Year> (i.e. Dec 1 2017).
@@ -229,7 +234,7 @@ def cleanup_date(date):
 
     Returns:
     --------
-    cleaned_date: str
+    formatted_date: str
         The date in the specified format of <Month> <Date> <Year>
 
     Examples:
@@ -280,40 +285,64 @@ def cleanup_date(date):
     return month + " " + day + " " + year
 
 
-def tree_to_json(tree):
+def _dict_to_json(tdict):
     """
-    Converts a nltk tree to a JSON object. In reality, it is just a useful 
+    Converts a dictionary to a JSON object. In reality, it is just a useful 
     abstraction of the json.dump() method. 
 
     Params:
     -------
-    tree: nltk Tree object
-        The tree output returned from running a search query and extracting the
-        necessary information.
+    dict: dict
+        The parsed words tree converted into its (key, value) pairs dictionary, 
+        taking into account nested subtrees. 
 
     Returns:
     --------
     json: JSON object
         The tree/dictionary converted to its JSON form. 
     """
-    tdict = _tree_to_dict(tree)
-    return json.dump(tdict, sys.stdout, indent=2)
+    return json.dumps(tdict, indent=4)
 
 
-def _tree_to_dict(tree):
+def _merge_dicts(*dict_args):
     """
-    Internal function, to be used by tree_to_json to build json output.
+    Given any number of dict arguments, shallow copy and merge into a new dict. 
+    Precedence goes to (key, value) pairs in later dicts. 
 
     Params:
     -------
-    tree: nltk Tree object
-        The tree output returned from running a search query and extracting the
-        necessary information.
+    dict_args: variable argument of dicts
+        Any number of dictionaries to merge together.
 
     Returns:
     --------
-    dict: dict
-        The parsed words tree converted into its (key, value) pairs dictionary, 
-        taking into account nested trees. 
+    result: dict
+        The merged dicts.
     """
-    return {tree.label(): [_tree_to_dict(t) if isinstance(t, Tree) else t for t in tree]}
+    result = {}
+    for dictionary in dict_args:
+        result.update(dictionary)
+    return result
+
+
+def process(raw):
+    # Parse parameters
+    tagged_words = clean(raw, get_tags=True)
+    origin_city, destination_city = get_origin_and_destination(tagged_words)
+    departure_date, return_date = get_dates(tagged_words)
+
+    # Convert to dicts
+    origin_city = {'origin': origin_city}
+    destination_city = {'destination': destination_city}
+    departure_date = {'departure': departure_date}
+    return_date = {'return': return_date}
+
+    # Build output 
+    output = {}
+    output['request'] = raw
+    output['response'] = _merge_dicts(origin_city, destination_city, departure_date, return_date)
+
+    # Convert to json
+    out = _dict_to_json(output)
+
+    return out
