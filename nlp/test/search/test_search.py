@@ -14,8 +14,8 @@ class TestNLPSearch(unittest.TestCase):
     "response": {
         "origin": "JFK",
         "destination": "LAX",
-        "departure": 1506916800.0,
-        "return": 1511240400.0
+        "departure": 1506916800000,
+        "return": 1511240400000
     }
 }"""
         self.assertEqual(output, output_airport_code)
@@ -28,8 +28,8 @@ class TestNLPSearch(unittest.TestCase):
     "response": {
         "origin": "JFK",
         "destination": "LAX",
-        "departure": 1506916800.0,
-        "return": 1511240400.0
+        "departure": 1506916800000,
+        "return": 1511240400000
     }
 }"""
         self.assertEqual(output, output_city_names)
@@ -42,8 +42,8 @@ class TestNLPSearch(unittest.TestCase):
     "response": {
         "origin": "JFK",
         "destination": "LAX",
-        "departure": 1506916800.0,
-        "return": 1511240400.0
+        "departure": 1506916800000,
+        "return": 1511240400000
     }
 }"""
         self.assertEqual(output, output_city_code)
@@ -56,8 +56,8 @@ class TestNLPSearch(unittest.TestCase):
     "response": {
         "origin": "JFK",
         "destination": "CDG",
-        "departure": 1506916800.0,
-        "return": 1511240400.0
+        "departure": 1506916800000,
+        "return": 1511240400000
     }
 }"""
         self.assertEqual(output, output_departure_return_dates)
@@ -70,7 +70,7 @@ class TestNLPSearch(unittest.TestCase):
     "response": {
         "origin": "JFK",
         "destination": "DEL",
-        "departure": 1506916800.0,
+        "departure": 1506916800000,
         "return": null
     }
 }"""
