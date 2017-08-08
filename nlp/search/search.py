@@ -174,11 +174,11 @@ def get_dates(tagged_words):
 
     Returns:
     --------
-    departure_date: float
-        The UNIX timestamp of the departure date. 
+    departure_date: int
+        The UNIX timestamp (in milleseconds) of the departure date. 
 
-    return_date: flaor
-        The UNIX timestamp of the return date, if available.
+    return_date: int
+        The UNIX timestamp (in milliseconds) of the return date, if available.
 
     TODO:
     -----
@@ -214,10 +214,10 @@ def get_dates(tagged_words):
         except AttributeError:
             continue
 
-    # Clean and convert the dates to UNIX datetime stamp
-    departure_date = dt.datetime.strptime(format_date(departure_date), "%b %d %Y").timestamp()
+    # Clean and convert the dates to UNIX datetime stamp with millisecond percision
+    departure_date = int(dt.datetime.strptime(format_date(departure_date), "%b %d %Y").timestamp() * 1e3)
     if return_date is not None:
-        return_date = dt.datetime.strptime(format_date(return_date), "%b %d %Y").timestamp()
+        return_date = int(dt.datetime.strptime(format_date(return_date), "%b %d %Y").timestamp() * 1e3)
 
     return departure_date, return_date
 
@@ -346,3 +346,5 @@ def process(raw):
     out = _dict_to_json(output)
 
     return out
+
+# TODO: Convert raw string to all caps for correct outputs 
