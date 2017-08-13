@@ -1,12 +1,55 @@
 [
   {
-    "input": "New york to paris october 23rd",
-    "output":
-    {
-      "departure": "unix timestamp equivalent to 10/23/2017",
-      "return": null,
-      "origin": "New york airport code (JFK)",
-      "destination": "Paris airport code (CDG)"
+    "request": "Flights from JFK to LAX between October 2nd to November 21st",
+    "response": {
+      "origin": "JFK",
+      "destination": "LAX",
+      "departure": 1506916800000,
+      "return": 1511240400000
     }
-  }
+  }, 
+
+  {
+    "request": "Flights from New York to Los Angeles between October 2nd to November 21st",
+    "response":
+    {
+      "origin": "JFK",
+      "destination": "LAX",
+      "departure": 1506916800000,
+      "return": 1511240400000
+    }
+  }, 
+
+  {
+    "request": "Flights from New York to LAX between October 2nd to November 21st",
+    "response":
+    {
+      "origin": "JFK",
+      "destination": "LAX",
+      "departure": 1506916800000,
+      "return": 1511240400000
+    }
+  }, 
+
+  {
+    "request": "Flights from New York to CDG from October 2nd to November 21st",
+    "response":
+    {
+      "origin": "JFK",
+      "destination": "CDG",
+      "departure": 1506916800000,
+      "return": 1511240400000
+    }
+  }, 
+
+  {
+    "request": "Flights from New York to DEL on October 2nd",
+    "response":
+    {
+      "origin": "JFK",
+      "destination": "DEL",
+      "departure": 1506916800000,
+      "return": null
+    }
+  } 
 ]
