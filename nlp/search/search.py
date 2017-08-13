@@ -39,7 +39,7 @@ def clean(raw, get_tags=True):
 
 def is_flexible(tagged_words):
     """
-    Checks whether or not the user has requested for a fexible flights (i.e. 
+    Checks whether or not the user has requested for a flexible flights (i.e. 
     variable dates and times). 
 
     Params:
