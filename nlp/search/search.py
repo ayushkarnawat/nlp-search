@@ -1,52 +1,12 @@
 import re
-
 import json
 import requests
 import datetime as dt
 
 import nltk
-from nltk import Tree
 from nltk.tokenize import word_tokenize
 
 from nlp.search import airports
-
-
-def get_query(url, params):
-    """
-    Gets the raw search query from the landing page url. 
-
-    Params:
-    -------
-    url: str
-        The page from where to submit a GET request for the search query
-
-    params: dict
-        A list of key value pairs with which to search the query from. 
-        For example, if we want to search for the keyword 'nlp' from google we 
-        would pass in the (key, value) pairs of {'site': None, 'source': 'hp', 
-        'q': 'nlp'} as the search parameters. 
-
-    Returns:
-    --------
-    r: Request object
-        The request object from which we can get the raw text returned by the GET request. 
-
-    Example:
-    --------
-    >>> import requests
-    >>> url = 'www.google.com/search'
-    >>> params = {'site': None, 'source': 'hp', 'q': 'nlp'}
-    >>> r = get_query(url, params)
-    """
-    # Specify the header information
-    header = {'user-agent': ('Mozilla/5.0 (Windows NT 10.0; WOW64)'
-                          'AppleWebKit/537.36 (KHTML, like Gecko)'
-                          'Chrome/57.0.2987.133 Safari/537.36'),
-              'referer': None,
-              'connection':'keep-alive'}
-    r = requests.get(url, headers=header, params=params)
-
-    return r
 
 
 def clean(raw, get_tags=True):
@@ -67,7 +27,8 @@ def clean(raw, get_tags=True):
         The string, removing all unecessary words and punctuations.
     """
     # Tokenize and remove unimportant punctuations
-    words = re.sub(r'[^\w\s]', '', raw) # TODO: This removes hyphens as well, which might be useful
+    # TODO: This removes hyphens as well, which might be useful
+    words = re.sub(r'[^\w\s]', '', raw)
     filtered_sentence = word_tokenize(words)
 
     if get_tags:
@@ -288,7 +249,7 @@ def format_date(date):
 def _dict_to_json(tdict):
     """
     Converts a dictionary to a JSON object. In reality, it is just a useful 
-    abstraction of the json.dump() method. 
+    abstraction of the json.dumps() method. 
 
     Params:
     -------
@@ -301,7 +262,7 @@ def _dict_to_json(tdict):
     json: JSON object
         The tree/dictionary converted to its JSON form. 
     """
-    return json.dumps(tdict, indent=4)
+    return json.dumps(tdict)
 
 
 def _merge_dicts(*dict_args):
