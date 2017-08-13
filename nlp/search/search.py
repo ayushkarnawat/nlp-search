@@ -39,13 +39,14 @@ def clean(raw, get_tags=True):
 
 def is_flexible(tagged_words):
     """
-    Checks whether or not the user has requested for a fexible fare (i.e. variable 
-    dates and times). 
+    Checks whether or not the user has requested for a fexible flights (i.e. 
+    variable dates and times). 
 
     Params:
     -------
     tagged_words: list of tuples
-        The tokenized and tagged words of the string based on the pre-trained UPenn corpus.
+        The tokenized and tagged words of the string based on the pre-trained 
+        UPenn corpus.
 
     Returns:
     --------
@@ -307,5 +308,3 @@ def process(raw):
     out = _dict_to_json(output)
 
     return out
-
-# TODO: Convert raw string to all caps for correct outputs 

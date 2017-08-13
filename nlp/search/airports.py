@@ -27,14 +27,12 @@ def is_airport_code(location):
     # Remove trailing and leading white spaces, if any
     location = location.strip()
 
-    # Check if the location is an airport code within IATA database
+    # Check if the location is an airport code within the database
     url = 'http://www.iatacodes.org/api/v6/airports'
     params = {'api_key': API_KEY, 'code': location}
     r = requests.get(url, params=params)
 
-    if len(r.json()['response']) > 0:
-        return True
-    return False
+    return len(r.json()['response']) > 0:
 
 
 def get_airport_code(location):
@@ -69,7 +67,5 @@ def get_airport_code(location):
             airport_code = country_airports[0]['code']
         elif len(city_airports) > 0:
             airport_code = city_airports[0]['code']
-        else:
-            raise RuntimeError('Could not find any airports within ' + location + ".")
         
         return airport_code
