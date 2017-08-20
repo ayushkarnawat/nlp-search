@@ -32,7 +32,7 @@ def is_airport_code(location):
     params = {'api_key': API_KEY, 'code': location}
     r = requests.get(url, params=params)
 
-    return len(r.json()['response']) > 0:
+    return len(r.json()['response']) > 0
 
 
 def get_airport_code(location):
@@ -67,5 +67,7 @@ def get_airport_code(location):
             airport_code = country_airports[0]['code']
         elif len(city_airports) > 0:
             airport_code = city_airports[0]['code']
+        else:
+            airport_code = None
         
         return airport_code

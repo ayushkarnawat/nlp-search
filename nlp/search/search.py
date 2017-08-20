@@ -4,6 +4,7 @@ import requests
 import datetime as dt
 
 import nltk
+from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
 from nlp.search import airports
@@ -28,8 +29,17 @@ def clean(raw, get_tags=True):
     """
     # Tokenize and remove unimportant punctuations
     # TODO: This removes hyphens as well, which might be useful
-    words = re.sub(r'[^\w\s]', '', raw)
-    filtered_sentence = word_tokenize(words)
+    sentence = re.sub(r'[^\w\s]', '', raw)
+    words = word_tokenize(sentence)
+
+    # Only capatalize the important words
+    filtered_sentence = []
+    stop_words = set(stopwords.words('english'))
+    for word in words:
+        if word not in stop_words:
+            filtered_sentence.append(word.title())
+        else:
+            filtered_sentence.append(word)
 
     if get_tags:
         filtered_sentence = nltk.pos_tag(filtered_sentence)
@@ -39,7 +49,7 @@ def clean(raw, get_tags=True):
 
 def is_flexible(tagged_words):
     """
-    Checks whether or not the user has requested for a flexible flights (i.e. 
+    Checks whether or not the user has requested for a flexible flight (i.e. 
     variable dates and times). 
 
     Params:
@@ -85,9 +95,11 @@ def get_origin_and_destination(tagged_words):
 
     Returns:
     --------
-    parsed_words: Tree object
-        The parsed string of words into a tree defining the new struture of the tagged string. 
-        The origin and destination are organized into one list.
+    origin_city: str
+        The 3-letter IATA code representaion of the origin city.
+
+    destination_city: str
+        The 3-letter IATA code representation of the destination city.
     """
     # Define the expression to get both origin and destination. Usually both the 
     # origin and destination are proper nouns (NNP) with the <TO> signifying the direction of travel. 
@@ -202,7 +214,7 @@ def format_date(date):
     Examples:
     ---------
     >>> date = "April 13th 2017"
-    Apr 13 2017
+    "Apr 13 2017"
     >>> date = "December 15th"
     "Dec 15 2017"
     >>> date = "December"
@@ -225,7 +237,7 @@ def format_date(date):
                 month = word.title()
 
         # If the word is the date (with or without the 'st, nd, th' parts)
-        if len(re.findall(r'^\d{1,2}[st|nd|th]*$', word)) > 0:
+        if len(re.findall(r'^\d{1,2}[st|St|nd|Nd|th|Th]*$', word)) > 0:
             if len(word) > 2: # Remove the "st, nd, th" parts of the date
                 day = word[:-2]
             else:
