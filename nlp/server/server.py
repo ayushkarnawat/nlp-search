@@ -1,8 +1,8 @@
 import sys
 import socket
-from _thread import *
+from _thread import start_new_thread
 
-from nlp.search import search
+from nlp.search.search import Search
 
 HOST = ''   # All avaliable interfaces
 PORT = 8888  # Arbitrary non-priveliged port
@@ -47,7 +47,7 @@ def client_thread(conn):
     while True:
         # Receiving from client and decode (for processing)
         data = conn.recv(1024).decode('utf-8')
-        reply = search.process(data)  # Process requested search query
+        reply = Search(data).to_json()  # Process requested search query
         if not data:
             break
         conn.sendall(reply.encode('utf-8'))

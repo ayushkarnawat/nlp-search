@@ -1,7 +1,13 @@
+"""
+Determine airport codes as defined by the IATA.
+
+Created by Ayush Karnawat on 06/20/2018.
+"""
+
 import os
 import requests
 
-
+# Setup
 API_KEY = os.environ['IATA_API_KEY']
 
 
@@ -71,3 +77,9 @@ def get_airport_code(location):
             airport_code = None
         
         return airport_code
+
+
+if __name__ == "__main__":
+    loc = 'Salt Lake City'
+    print("'{0:s}' is an airport code: {1:}".format(loc, is_airport_code(loc)))
+    print("Airport associated with '{0:s}' is {1:s}".format(loc, get_airport_code(loc)))

@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from nlp.search import search
+from nlp.search.search import Search
 
 
 class TestSearch(unittest.TestCase):
@@ -13,7 +13,7 @@ class TestSearch(unittest.TestCase):
 
         for test_case in test_cases:
             raw = test_case['request']
-            output = search.process(raw)
+            output = Search(raw).to_json()
             response = json.dumps(test_case) # Convert to str to compare outputs
             self.assertEqual(output, response)
 

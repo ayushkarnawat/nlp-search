@@ -1,3 +1,10 @@
+"""
+Natural Language Processing (NLP) search engine for extracting information from
+search queries that ask about airfare tickets.
+
+Created by Ayush Karnawat on 8/15/2017.
+"""
+
 import re
 import json
 import requests
@@ -10,190 +17,224 @@ from nltk.tokenize import word_tokenize
 from nlp.search import airports
 
 
-def clean(raw, get_tags=True):
+class Search(object):
     """
-    Removes unnecssary words and punctuations from the raw string.
+    Basic NLP search engine for parsing information from search queies about airfare tickets. 
+    Parses relevant information from a raw string to a structured JSON output.
 
     Params:
     -------
     raw: str
         The raw, unfiltered string.
-
-    get_tags: bool, optional, default=True
-        Whether or not to get the part of speech tags for the filtered words
-
-    Returns:
-    --------
-    filtered_sentence: list of str
-        The string, removing all unecessary words and punctuations.
     """
-    # Tokenize and remove unimportant punctuations
-    # TODO: This removes hyphens as well, which might be useful
-    sentence = re.sub(r'[^\w\s]', '', raw)
-    words = word_tokenize(sentence)
-
-    # Only capatalize the important words
-    filtered_sentence = []
-    stop_words = set(stopwords.words('english'))
-    for word in words:
-        if word not in stop_words:
-            filtered_sentence.append(word.title())
-        else:
-            filtered_sentence.append(word)
-
-    if get_tags:
-        filtered_sentence = nltk.pos_tag(filtered_sentence)
-
-    return filtered_sentence
 
 
-def is_flexible(tagged_words):
-    """
-    Checks whether or not the user has requested for a flexible flight (i.e. 
-    variable dates and times). 
+    def __init__(self, raw):
+        self.raw = raw
+        self.tagged_words = self.clean(get_tags=True)
+        self.origin_city, self.destination_city = self.get_origin_and_destination()
+        self.departure_date, self.return_date = self.get_dates()
 
-    Params:
-    -------
-    tagged_words: list of tuples
-        The tokenized and tagged words of the string based on the pre-trained 
-        UPenn corpus.
 
-    Returns:
-    --------
-    bool: 
-        Whether or not the searched flight request has flexible dates or not.
-    """
-    # Check if the keyword "flexible" is within the input. 
-    for word in tagged_words:
-        if ("Flexible" in word) or ("flexible" in word):
-            return True
+    def clean(self, get_tags=True):
+        """
+        Removes unnecssary words and punctuations from the raw string.
 
-    # Check for any indication of flexibles dates (i.e. October 8 or October 11 to XXXX)
-    grams = r"Flexible: {<CD.?>+<CC><CD.?>}"
-    parser = nltk.RegexpParser(grams)
+        Params:
+        -------
+        get_tags: bool, optional, default=True
+            Whether or not to get the part of speech tags for the filtered words
 
-    parsed_tree = parser.parse(tagged_words)
+        Returns:
+        --------
+        filtered_sentence: list of str
+            The string, removing all unecessary words and punctuations.
+        """
+        # Tokenize and remove unimportant punctuations
+        # TODO: This removes hyphens as well, which might be useful
+        sentence = re.sub(r'[^\w\s]', '', self.raw)
+        words = word_tokenize(sentence)
 
-    # Check if there exists a nested tree object named "Flexible"
-    for subtree in parsed_tree:
-        try: 
-            if ("Flexible" in subtree.label()): 
+        # Only capatalize the important words
+        filtered_sentence = []
+        stop_words = set(stopwords.words('english'))
+        for word in words:
+            if word not in stop_words:
+                filtered_sentence.append(word.title())
+            else:
+                filtered_sentence.append(word)
+
+        # Tag all words with their part of speech
+        if get_tags:
+            filtered_sentence = nltk.pos_tag(filtered_sentence)
+
+        return filtered_sentence
+
+
+    def is_flexible(self):
+        """
+        Checks whether or not the user has requested for a flexible flight (i.e. 
+        variable dates and times). 
+
+        Returns:
+        --------
+        bool: 
+            Whether or not the searched flight request has flexible dates or not.
+        """
+        # Check if the keyword "flexible" is within the input.
+        for word in self.tagged_words:
+            if ("Flexible" in word) or ("flexible" in word):
                 return True
-        except AttributeError:
-            continue
-    return False
+
+        # Check for any indication of flexibles dates (i.e. October 8 or
+        # October 11 to XXXX)
+        grams = r"Flexible: {<CD.?>+<CC><CD.?>}"
+        parser = nltk.RegexpParser(grams)
+
+        parsed_tree = parser.parse(self.tagged_words)
+
+        # Check if there exists a nested tree object named "Flexible"
+        for subtree in parsed_tree:
+            try:
+                if ("Flexible" in subtree.label()):
+                    return True
+            except AttributeError:
+                continue
+        return False
 
 
-def get_origin_and_destination(tagged_words):
-    """
-    Gets the origin and destination of where the user wants to travel. 
+    def get_origin_and_destination(self):
+        """
+        Gets the origin and destination of where the user wants to travel. 
 
-    Params:
-    -------
-    tagged_words: list of tuples
-        The tokenized and tagged words of the string based on the pre-trained UPenn corpus.
+        Params:
+        -------
+        tagged_words: list of tuples
+            The tokenized and tagged words of the string based on the pre-trained UPenn corpus.
 
-    Returns:
-    --------
-    origin_city: str
-        The 3-letter IATA code representaion of the origin city.
+        Returns:
+        --------
+        origin_city: str
+            The 3-letter IATA code representaion of the origin city.
 
-    destination_city: str
-        The 3-letter IATA code representation of the destination city.
-    """
-    # Define the expression to get both origin and destination. Usually both the 
-    # origin and destination are proper nouns (NNP) with the <TO> signifying the direction of travel. 
-    grams = r"Origin/Destination: {<NNP.?>+<TO><NNP?>*}"
-    parser = nltk.RegexpParser(grams)
+        destination_city: str
+            The 3-letter IATA code representation of the destination city.
+        """
+        # Define the expression to get both origin and destination. Usually both the 
+        # origin and destination are proper nouns (NNP) with the <TO> signifying the direction of travel. 
+        grams = r"Origin/Destination: {<NNP.?>+<TO><NNP?>*}"
+        parser = nltk.RegexpParser(grams)
 
-    parsed_tree = parser.parse(tagged_words)
+        parsed_tree = parser.parse(self.tagged_words)
 
-    # Check if there exists a nested tree object named "Departure/Return"
-    for subtree in parsed_tree:
-        try:
-            if "Origin/Destination" in subtree.label():
-                # A city name can be arbitrarily long, so we will have to use 
-                # another tree parser have to get the name until the "to" keyword
-                origin_grams = r"Origin: {<NNP.?>+<TO>}"
-                origin_parser = nltk.RegexpParser(origin_grams)
-                nested_subtree = origin_parser.parse(subtree)
+        # Check if there exists a nested tree object named "Departure/Return"
+        for subtree in parsed_tree:
+            try:
+                if "Origin/Destination" in subtree.label():
+                    # A city name can be arbitrarily long, so we will have to use 
+                    # another tree parser have to get the name until the "to" keyword
+                    origin_grams = r"Origin: {<NNP.?>+<TO>}"
+                    origin_parser = nltk.RegexpParser(origin_grams)
+                    nested_subtree = origin_parser.parse(subtree)
 
-                # Get the origin city
-                origin_city = ""
-                for i in range(0, len(nested_subtree[0]) - 1):
-                        origin_city += nested_subtree[0][i][0] + " "
+                    # Get the origin city
+                    origin_city = ""
+                    for i in range(0, len(nested_subtree[0]) - 1):
+                            origin_city += nested_subtree[0][i][0] + " "
 
-                # Get the departure city
-                destination_city = ""
-                for word in nested_subtree[1:]:
-                    destination_city += word[0] + " "
-        except AttributeError:
-            continue
+                    # Get the departure city
+                    destination_city = ""
+                    for word in nested_subtree[1:]:
+                        destination_city += word[0] + " "
+            except AttributeError:
+                continue
 
-    # Get airport codes associated with the cities
-    origin_city = airports.get_airport_code(origin_city)
-    destination_city = airports.get_airport_code(destination_city)
+        # Get airport codes associated with the cities
+        origin_city = airports.get_airport_code(origin_city)
+        destination_city = airports.get_airport_code(destination_city)
 
-    return origin_city, destination_city
+        return origin_city, destination_city
 
 
-def get_dates(tagged_words):
-    """
-    Gets the dates of departure and return. 
+    def get_dates(self):
+        """
+        Gets the dates of departure and return. 
 
-    Params:
-    -------
-    tagged_words: list of tuples
-        The tokenized and tagged words of the string based on the pre-trained UPenn corpus.
+        Params:
+        -------
+        tagged_words: list of tuples
+            The tokenized and tagged words of the string based on the pre-trained UPenn corpus.
 
-    Returns:
-    --------
-    departure_date: int
-        The UNIX timestamp (in milleseconds) of the departure date. 
+        Returns:
+        --------
+        departure_date: int
+            The UNIX timestamp (in milleseconds) of the departure date. 
 
-    return_date: int
-        The UNIX timestamp (in milliseconds) of the return date, if available.
+        return_date: int
+            The UNIX timestamp (in milliseconds) of the return date, if available.
 
-    TODO:
-    -----
-    - When months are given in lowercase/abbreviated form, the nltk tags result in them 
-        being classified as JJ (aka adjective) or RB (aka adverb). For example, the string:
+        TODO:
+        -----
+        - When months are given in lowercase/abbreviated form, the nltk tags result in them 
+            being classified as JJ (aka adjective) or RB (aka adverb). For example, the string:
 
-            raw = "Flights from NYC to LAX from oct 3 or 7 till november 11"
-        
-        is tagged as: 
-        [('Flights', 'NNS'), ('from', 'IN'), ('NYC', 'NNP'), ('to', 'TO'), ('LAX', 'VB'), 
-         ('from', 'IN'), ('october', 'JJ'), ('3', 'CD'), ('or', 'CC'), ('7', 'CD'), 
-         ('till', 'JJ'), ('november', 'RB'), ('11', 'CD')]
+                raw = "Flights from NYC to LAX from oct 3 or 7 till november 11"
+            
+            is tagged as: 
+            [('Flights', 'NNS'), ('from', 'IN'), ('NYC', 'NNP'), ('to', 'TO'), ('LAX', 'VB'), 
+            ('from', 'IN'), ('october', 'JJ'), ('3', 'CD'), ('or', 'CC'), ('7', 'CD'), 
+            ('till', 'JJ'), ('november', 'RB'), ('11', 'CD')]
 
-        This is a issue as it will not get parsed out properly.
-    """
-    grams = r"Departure/Return: {<NNP.?>*<CD>+<TO>*<NNP.?>*<CD>*}"
-    parser = nltk.RegexpParser(grams)
+            This is a issue as it will not get parsed out properly.
+        """
+        grams = r"Departure/Return: {<NNP.?>*<CD>+<TO>*<NNP.?>*<CD>*}"
+        parser = nltk.RegexpParser(grams)
 
-    parsed_tree = parser.parse(tagged_words)
+        parsed_tree = parser.parse(self.tagged_words)
 
-    # Check if there exists a nested tree object named "Departure/Return"
-    for subtree in parsed_tree:
-        try:
-            if "Departure/Return" in subtree.label():
-                # Since there will be a min of 2 words but at most 5 words in 
-                # this subtree, we can simply return the departure date and 
-                # check if there is a return date
-                departure_date = subtree[0][0] + " " + subtree[1][0]
-                if len(subtree) < 3:
-                    return_date = None
-                else:
-                    return_date = subtree[3][0] + " " + subtree[4][0]
-        except AttributeError:
-            continue
+        # Check if there exists a nested tree object named "Departure/Return"
+        for subtree in parsed_tree:
+            try:
+                if "Departure/Return" in subtree.label():
+                    # Since there will be a min of 2 words but at most 5 words in 
+                    # this subtree, we can simply return the departure date and 
+                    # check if there is a return date
+                    departure_date = subtree[0][0] + " " + subtree[1][0]
+                    if len(subtree) < 3:
+                        return_date = None
+                    else:
+                        return_date = subtree[3][0] + " " + subtree[4][0]
+            except AttributeError:
+                continue
 
-    # Clean and convert the dates to UNIX datetime stamp with millisecond percision
-    departure_date = int(dt.datetime.strptime(format_date(departure_date), "%b %d %Y").timestamp() * 1e3)
-    if return_date is not None:
-        return_date = int(dt.datetime.strptime(format_date(return_date), "%b %d %Y").timestamp() * 1e3)
+        # Clean and convert the dates to UNIX datetime stamp with millisecond percision
+        departure_date = int(dt.datetime.strptime(format_date(departure_date), "%b %d %Y").timestamp() * 1e3)
+        if return_date is not None:
+            return_date = int(dt.datetime.strptime(format_date(return_date), "%b %d %Y").timestamp() * 1e3)
 
-    return departure_date, return_date
+        return departure_date, return_date
+
+    
+    def to_json(self):
+        """
+        Convert the relevant information to JSON.
+
+        Returns:
+        --------
+        out: JSON object
+            The information in its JSON format.
+        """
+        # Build output
+        output = {
+            'request': self.raw,
+            'response': {
+                'origin': self.origin_city,
+                'destination': self.destination_city,
+                'departure': self.departure_date,
+                'return': self.return_date
+            }
+        }
+        return json.dumps(output)
 
 
 def format_date(date):
@@ -204,12 +245,12 @@ def format_date(date):
     Params:
     -------
     date: str
-        The date as expressed in human readable format
+        The date as expressed in human readable format.
 
     Returns:
     --------
     formatted_date: str
-        The date in the specified format of <Month> <Date> <Year>
+        The date in the specified format of <Month> <Date> <Year>.
 
     Examples:
     ---------
@@ -237,7 +278,7 @@ def format_date(date):
                 month = word.title()
 
         # If the word is the date (with or without the 'st, nd, th' parts)
-        if len(re.findall(r'^\d{1,2}[st|St|nd|Nd|th|Th]*$', word)) > 0:
+        if len(re.findall(r'^\d{1,2}[st|St|nd|Nd|rd|Rd|th|Th]*$', word)) > 0:
             if len(word) > 2: # Remove the "st, nd, th" parts of the date
                 day = word[:-2]
             else:
@@ -259,64 +300,12 @@ def format_date(date):
     return month + " " + day + " " + year
 
 
-def _dict_to_json(tdict):
-    """
-    Converts a dictionary to a JSON object. In reality, it is just a useful 
-    abstraction of the json.dumps() method. 
-
-    Params:
-    -------
-    dict: dict
-        The parsed words tree converted into its (key, value) pairs dictionary, 
-        taking into account nested subtrees. 
-
-    Returns:
-    --------
-    json: JSON object
-        The tree/dictionary converted to its JSON form. 
-    """
-    return json.dumps(tdict)
-
-
-def _merge_dicts(*dict_args):
-    """
-    Given any number of dict arguments, shallow copy and merge into a new dict. 
-    Precedence goes to (key, value) pairs in later dicts. 
-
-    Params:
-    -------
-    dict_args: variable argument of dicts
-        Any number of dictionaries to merge together.
-
-    Returns:
-    --------
-    result: dict
-        The merged dicts.
-    """
-    result = {}
-    for dictionary in dict_args:
-        result.update(dictionary)
-    return result
-
-
-def process(raw):
-    # Parse parameters
-    tagged_words = clean(raw, get_tags=True)
-    origin_city, destination_city = get_origin_and_destination(tagged_words)
-    departure_date, return_date = get_dates(tagged_words)
-
-    # Convert to dicts
-    origin_city = {'origin': origin_city}
-    destination_city = {'destination': destination_city}
-    departure_date = {'departure': departure_date}
-    return_date = {'return': return_date}
-
-    # Build output 
-    output = {}
-    output['request'] = raw
-    output['response'] = _merge_dicts(origin_city, destination_city, departure_date, return_date)
-
-    # Convert to json
-    out = _dict_to_json(output)
-
-    return out
+if __name__ == "__main__":
+    raw = "Flights from New York to DEL on October 2nd"
+    s = Search(raw)
+    print(s.tagged_words)
+    print(s.origin_city)
+    print(s.destination_city)
+    print(s.departure_date)
+    print(s.return_date)
+    print(s.to_json())
