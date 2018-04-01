@@ -1,4 +1,4 @@
-# Flightfutures NLP 
+# Flight Search NLP 
 
 #### Setup
 - `pip install -r requirement.txt`
